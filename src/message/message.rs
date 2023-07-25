@@ -1,9 +1,9 @@
-use std::sync::{mpsc, Arc};
-
+use std::sync::Arc;
 use crate::utils;
 
 use super::{transaction::Transaction, consts};
 use async_std::channel;
+use crate::message::event::Event;
 
 #[derive(Debug)]
 pub struct MessageData<> {
@@ -70,6 +70,6 @@ impl  MessageData {
 #[derive(Debug)]
 pub enum Message {
     Transaction(Transaction),
-    Event,
+    Event(Event),
     Heartbeat,
 }

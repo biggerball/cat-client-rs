@@ -1,7 +1,5 @@
-use std::cell::Cell;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicU64, Ordering};
-
 use async_std::channel;
 use crate::cat::consts::Signal;
 use crate::cat::scheduler::ScheduleMixer;
@@ -40,8 +38,13 @@ impl ScheduleMixer for CatMessageManager {
 
                         }
                     },
-                    Message::Event => {
+                    Message::Event(event) => {
+                        let message_id = self.next_id();
+                        if event.get_status() != consts::CAT_SUCCESS {
+                            self.sender.handle_event(msg, message_id).await;
+                        } else {
 
+                        }
                     }
                     _ => {}
                 }

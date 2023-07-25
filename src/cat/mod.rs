@@ -5,3 +5,4 @@ pub mod sender;
 pub mod aggregator;
 pub mod consts;
 pub mod config;
+pub mod router;

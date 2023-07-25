@@ -1,6 +1,5 @@
 use std::sync::Mutex;
 use async_std::channel;
-use hostname::get;
 use crate::cat::config::Config;
 use crate::message::message::{Message, MessageGetter};
 use super::scheduler::{ScheduleMixin};
@@ -33,18 +32,20 @@ impl CatMessageSender {
             ip: config.get_ip().clone(),
         }
     }
-    pub async fn handle_transaction(&self, transaction: Message, id: String) {
-        if let Message::Transaction(trans) = &transaction {
-            if trans.get_status() != consts::CAT_SUCCESS {
-                self.high.0.send((transaction, id)).await.expect("err");
+    pub async fn handle_transaction(&self, message_transaction: Message, id: String) {
+        if let Message::Transaction(transaction) = &message_transaction {
+            if transaction.get_status() != consts::CAT_SUCCESS {
+                self.high.0.send((message_transaction, id)).await.expect("err");
             } else {
-                self.normal.0.send((transaction, id)).await.expect("err");
+                self.normal.0.send((message_transaction, id)).await.expect("err");
             }
         }
     }
 
-    pub fn handle_event(&self, event: Message) {
-        
+    pub async fn handle_event(&self, message_event: Message, id: String) {
+        if let Message::Event(event) = &message_event {
+            self.normal.0.send((message_event, id)).await.expect("err");
+        }
     }
 
     fn send(&self, message: Message, id: String) {
@@ -54,6 +55,7 @@ impl CatMessageSender {
 
         let header = Header::new(self.domain.as_str(), self.hostname.as_str(), self.ip.as_str(), id);
         BinaryEncoder::encode_header(&mut *buf, &header);
+
 
     }
 }
