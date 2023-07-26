@@ -3,14 +3,16 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::{Arc, Mutex};
-use crate::cat::cat::Cat;
-use crate::cat;
+use crate::{cat, Cat};
 use crate::cat::aggregator;
+use crate::cat::aggregator::CatLocalAggregator;
 use crate::cat::scheduler::{ScheduleMixer, ScheduleMixin};
 use crate::message;
 use crate::message::encoder_binary::BinaryEncoder;
 use crate::message::message::{Message, MessageGetter, Messager};
 use crate::message::transaction::Transaction;
+
+use super::scheduler::Flush;
 
 struct TransactionData {
     m_type: String,
@@ -21,10 +23,10 @@ struct TransactionData {
     duration: HashMap<i64, i64>
 }
 
-pub struct TransactionAggregator<'cat> {
-    cat: &'cat Cat,
+pub struct TransactionAggregator {
+    aggregator: Arc<CatLocalAggregator>,
     schedule_mixin: ScheduleMixin,
-    data_map: Mutex<RefCell<HashMap<String, (String, TransactionData)>>>,
+    data_map: Mutex<RefCell<HashMap<String, TransactionData>>>,
 }
 
 impl TransactionData {
@@ -85,27 +87,27 @@ impl TransactionData {
     }
 }
 
-impl <'cat> TransactionAggregator<'cat> {
+impl TransactionAggregator {
 
-    pub fn new(cat: &'cat Cat) -> Self {
+    pub fn new(aggregator: Arc<CatLocalAggregator>) -> Self {
         TransactionAggregator{
-            cat,
+            aggregator,
             schedule_mixin: ScheduleMixin::new(cat::consts::Signal::SignalSenderExit),
             data_map: Mutex::new(RefCell::new(Default::default())),
         }
     }
 
-    pub fn put_or_merge(&self, transaction: Transaction, id: String) {
+    pub fn put_or_merge(&self, transaction: Transaction) {
         let data_map = self.data_map.lock().unwrap();
         let mut data_map = data_map.borrow_mut();
 
         let key = format!("{}-{}", transaction.get_type(), transaction.get_name());
-        if let Some((_, transaction_data)) = data_map.get_mut(&key) {
+        if let Some(transaction_data) = data_map.get_mut(&key) {
             transaction_data.add(&transaction);
         } else {
             let mut new_transaction_data = TransactionData::new(transaction.get_type(), transaction.get_name());
             new_transaction_data.add(&transaction);
-            data_map.insert(key, (id, new_transaction_data));
+            data_map.insert(key, new_transaction_data);
         }
     }
 
@@ -120,15 +122,19 @@ impl <'cat> TransactionAggregator<'cat> {
         self.send(data).await;
     }
 
-    async fn send(&self, data_map: HashMap<String, (String, TransactionData)>) {
+    async fn send(&self, data_map: HashMap<String, TransactionData>) {
         if data_map.len() == 0 {
             return;
         }
-        let mut transaction = self.cat.new_transaction_aggregator(cat::consts::TYPE_SYSTEM.to_string(), cat::consts::NAME_TRANSACTION_AGGREGATOR.to_string());
+        let mut transaction = Transaction::new(
+            cat::consts::TYPE_SYSTEM.to_string(), 
+            cat::consts::NAME_TRANSACTION_AGGREGATOR.to_string(), 
+            Some(Arc::clone(self.aggregator.get_flush_sedner())));
 
-        for (_, (id, data_transaction)) in data_map {
+        for (_, data_transaction) in data_map {
             let data = encode_transaction_data(&data_transaction);
-            let mut trans = self.cat.new_transaction_child(data_transaction.m_type, data_transaction.name);
+            
+            let mut trans = Transaction::new(data_transaction.m_type, data_transaction.name, None);
             trans.set_data(String::from_utf8(data).unwrap());
             transaction.add_children(Message::Transaction(trans));
         }
@@ -137,9 +143,9 @@ impl <'cat> TransactionAggregator<'cat> {
 }
 
 #[async_trait::async_trait]
-impl <'cat> ScheduleMixer for TransactionAggregator<'cat> {
+impl ScheduleMixer for TransactionAggregator {
     fn get_name(&self) -> &'static str {
-        todo!()
+        "TransactionAggregator"
     }
 
     async fn handle(&self, _: cat::consts::Signal) {
