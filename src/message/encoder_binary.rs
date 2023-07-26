@@ -77,7 +77,7 @@ impl BinaryEncoder {
     //     Self::encode_message_with_leader(buf, trace, b'L');
     // }
 
-    fn write_i64(buf: &mut Vec<u8>, i: i64) {
+    pub fn write_i64(buf: &mut Vec<u8>, i: i64) {
         let mut i = i;
         loop {
             if i & !0x7F == 0 {
@@ -90,7 +90,7 @@ impl BinaryEncoder {
         }
     }
 
-    fn write_string(buf: &mut Vec<u8>, s: &str) {
+    pub fn write_string(buf: &mut Vec<u8>, s: &str) {
         if s.len() == 0 {
             Self::write_i64(buf, 0 as i64);
         } else {

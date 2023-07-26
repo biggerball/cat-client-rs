@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use crate::cat::aggregator_transaction::TransactionAggregator;
 use crate::cat::config::Config;
 
 use crate::message::transaction::Transaction;
@@ -18,25 +19,30 @@ impl Cat {
         let config = Config::new();
 
         let sender = Arc::new(CatMessageSender::new(&config));
-        let aggregator = Arc::new(CatLocalAggregator::new(Arc::clone(&sender)));
         let manager = Arc::new(CatMessageManager::new(Arc::clone(&sender)));
+        let aggregator = Arc::new(CatLocalAggregator::new(Arc::clone(&sender)));
 
         scheduler::background(Arc::clone(&manager) as Arc<CatMessageManager>);
         scheduler::background(Arc::clone(&sender) as Arc<CatMessageSender>);
 
-
-        Cat { 
+        let cat = Cat {
             manager: manager,
             sender: sender,
             aggregator: aggregator
-        }
+        };
+        let transaction_aggregator = Arc::new(TransactionAggregator::new(&cat));
+        cat
     }
 
     pub fn new_transaction(&self, message_type: String, name: String) -> Transaction {
-        Transaction::new(
-            message_type, 
-            name, 
-            Some(Arc::clone(self.manager.get_flush_sedner()))
-        )
+        Transaction::new(message_type, name, Some(Arc::clone(self.manager.get_flush_sedner())))
+    }
+
+    pub(crate) fn new_transaction_aggregator(&self, message_type: String, name: String) -> Transaction {
+        Transaction::new(message_type, name, Some(Arc::clone(self.aggregator.get_flush_sedner())))
+    }
+
+    pub(crate) fn new_transaction_child(&self, message_type: String, name: String) -> Transaction {
+        Transaction::new(message_type, name, None)
     }
 }

@@ -1,14 +1,23 @@
 use std::sync::Arc;
 use crate::cat::consts::Signal;
-use crate::cat::scheduler::ScheduleMixer;
+use crate::cat::scheduler::{Flush, ScheduleMixer};
 use crate::message::message::Message;
 use async_trait::async_trait;
 use super::sender::CatMessageSender;
 use async_std::channel;
 
+pub const BATCH_FLAG: u8 = b'@';
+pub const BATCH_SPLIT: u8 = b';';
+
 pub struct CatLocalAggregator {
     flush_channel: (Arc<channel::Sender<Message>>, channel::Receiver<Message>),
     sender: Arc<CatMessageSender>
+}
+
+impl Flush for CatLocalAggregator {
+    fn get_flush_sedner(&self) -> &Arc<channel::Sender<Message>> {
+        &self.flush_channel.0
+    }
 }
 
 // #[async_trait]

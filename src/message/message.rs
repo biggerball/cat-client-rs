@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use bytes::{BufMut};
 use crate::utils;
 
 use super::{transaction::Transaction, consts};
@@ -12,7 +13,7 @@ pub struct MessageData<> {
     status: &'static str,
     timestamp: i64,
     data: Vec<u8>,
-    flush_sender: Option<Arc<channel::Sender<Message>>>
+    flush_sender: Option<Arc<channel::Sender<(Message)>>>
 }
 
 pub trait MessageGetter {
@@ -23,6 +24,16 @@ pub trait MessageGetter {
     fn get_data(&self) -> &Vec<u8>;
     fn get_time(&self) -> i64;
 }
+
+pub trait Messager {
+    fn add_data_kv(&mut self, k: String, v: String);
+    fn add_data_k(&mut self, k: String);
+    fn set_data(&mut self, v: String);
+    fn set_status(&mut self, status: &'static str);
+    fn set_time(&mut self, time: i64);
+}
+
+
 
 impl MessageGetter for MessageData {
     fn get_type(&self) -> &String {
@@ -46,8 +57,39 @@ impl MessageGetter for MessageData {
     }
 }
 
-impl  MessageData {
-    pub fn new(m_type: String, name: String, flush_sender: Option<Arc<channel::Sender<Message>>>) -> Self {
+impl Messager for MessageData {
+    fn add_data_kv(&mut self, k: String, v: String) {
+        if self.data.len() != 0 {
+            self.data.put_u8(b'&');
+        }
+        self.data.put(k.as_bytes());
+        self.data.put_u8(b'=');
+        self.data.put(v.as_bytes());
+    }
+
+    fn add_data_k(&mut self, k: String) {
+        if self.data.len() != 0 {
+            self.data.put_u8(b'&');
+        }
+        self.data.put(k.as_bytes());
+    }
+
+    fn set_data(&mut self, v: String) {
+        self.data.clear();
+        self.data.put(v.as_bytes());
+    }
+
+    fn set_status(&mut self, status: &'static str) {
+        self.status = status;
+    }
+
+    fn set_time(&mut self, time: i64) {
+        todo!()
+    }
+}
+
+impl MessageData {
+    pub fn new(m_type: String, name: String, flush_sender: Option<Arc<channel::Sender<(Message)>>>) -> Self {
         MessageData {
             m_type,
             name,
@@ -62,7 +104,7 @@ impl  MessageData {
         self.status
     }
 
-    pub fn get_flush_sender(&self) -> &Option<Arc<channel::Sender<Message>>> {
+    pub fn get_flush_sender(&self) -> &Option<Arc<channel::Sender<(Message)>>> {
         &self.flush_sender
     }
 }
