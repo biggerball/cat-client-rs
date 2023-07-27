@@ -1,6 +1,7 @@
+use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 use async_std::channel;
-use crate::message::message::{Message, MessageData, MessageGetter};
+use crate::message::message::{Message, MessageData, MessageGetter, Messager};
 
 #[derive(Debug)]
 pub struct Event {
@@ -35,5 +36,27 @@ impl MessageGetter for Event {
 
     fn get_time(&self) -> i64 {
         self.message_data.get_time()
+    }
+}
+
+impl Messager for Event {
+    fn add_data_kv(&mut self, k: String, v: String) {
+        todo!()
+    }
+
+    fn add_data_k(&mut self, k: String) {
+        todo!()
+    }
+
+    fn set_data(&mut self, v: String) {
+        todo!()
+    }
+
+    fn set_status(&mut self, status: &'static str) {
+        todo!()
+    }
+
+    fn set_time(&mut self, time: i64) {
+        todo!()
     }
 }

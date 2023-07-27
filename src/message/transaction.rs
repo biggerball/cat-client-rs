@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::utils;
 
-use super::message::{MessageData, Message, MessageGetter};
+use super::{message::{MessageData, Message, MessageGetter}, event::Event};
 use async_std::channel;
 use crate::message::message::Messager;
 
@@ -39,18 +39,21 @@ impl Transaction {
         }
     }
 
-    pub(crate) async fn complete_with_id(mut self, id: String) {
-        self.is_completed = true;
-        self.duration_in_micros = utils::get_timestamp() - self.get_time();
-        if let Some(flush) = &self.message_data.get_flush_sender() {
-            let flush = Arc::clone(flush);
-            flush.send(Message::Transaction(self)).await.expect("err");
-        }
+    pub fn add_children(&mut self, children: Message) {
+        // self.children.push(children);
     }
 
-    pub fn add_children(&mut self, children: Message) {
-        self.children.push(children);
+    pub fn new_event(&mut self, message_type: String, name: String) -> Result<&mut Event,()> {
+        self.children.push(Message::Event(Event::new(message_type, name, None)));
+        //i don't know how to better
+        let index = self.children.len();
+        if let Message::Event(event) = &mut self.children[index - 1] {
+            return Ok(event);
+        } else {
+            Err(())
+        }
     }
+    
 }
 
 impl MessageGetter for Transaction {

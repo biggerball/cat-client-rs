@@ -3,6 +3,7 @@ use cat::aggregator_transaction::TransactionAggregator;
 use cat::scheduler;
 
 use crate::cat::aggregator::CatLocalAggregator;
+use crate::cat::aggregator_event::EventAggregator;
 use crate::cat::config::Config;
 use crate::cat::manager::CatMessageManager;
 use crate::cat::scheduler::Flush;
@@ -18,25 +19,32 @@ pub struct Cat {
     manager: Arc<CatMessageManager>,
     sender: Arc<CatMessageSender>,
     aggregator: Arc<CatLocalAggregator>,
-    transaction_aggregator: Arc<TransactionAggregator>
+    transaction_aggregator: Arc<TransactionAggregator>,
+    event_aggregator: Arc<EventAggregator>
 }
 
 impl Cat {
 
     pub fn new(config: Config) -> Cat {
         let sender = Arc::new(CatMessageSender::new(&config));
-        let manager = Arc::new(CatMessageManager::new(Arc::clone(&sender)));
         let aggregator = Arc::new(CatLocalAggregator::new(Arc::clone(&sender)));
         let transaction_aggregator = Arc::new(TransactionAggregator::new(Arc::clone(&aggregator)));
+        let event_aggregator = Arc::new(EventAggregator::new(Arc::clone(&aggregator)));
+
+        let manager = Arc::new(CatMessageManager::new(Arc::clone(&sender), Arc::clone(&transaction_aggregator)));
         
 
         scheduler::background(Arc::clone(&manager) as Arc<CatMessageManager>);
         scheduler::background(Arc::clone(&sender) as Arc<CatMessageSender>);
+        scheduler::background(Arc::clone(&transaction_aggregator) as Arc<TransactionAggregator>);
+        scheduler::background(Arc::clone(&event_aggregator) as Arc<EventAggregator>);
+
         let cat = Cat {
             manager,
             sender,
             aggregator,
-            transaction_aggregator
+            transaction_aggregator,
+            event_aggregator
         };
 
         cat
@@ -50,6 +58,7 @@ impl Cat {
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
+    use async_std::prelude::StreamExt;
 
     use super::*;
 

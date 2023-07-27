@@ -1,11 +1,11 @@
-use bytes::{BufMut};
+use bytes::BufMut;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::{Arc, Mutex};
-use crate::{cat, Cat};
+use async_std::channel;
+use crate::cat::consts;
 use crate::cat::aggregator;
-use crate::cat::aggregator::CatLocalAggregator;
 use crate::cat::scheduler::{ScheduleMixer, ScheduleMixin};
 use crate::message;
 use crate::message::encoder_binary::BinaryEncoder;
@@ -24,9 +24,10 @@ struct TransactionData {
 }
 
 pub struct TransactionAggregator {
-    aggregator: Arc<CatLocalAggregator>,
+    aggregator: Arc<aggregator::CatLocalAggregator>,
     schedule_mixin: ScheduleMixin,
     data_map: Mutex<RefCell<HashMap<String, TransactionData>>>,
+    ch: (channel::Sender<Transaction>, channel::Receiver<Transaction>),
 }
 
 impl TransactionData {
@@ -89,15 +90,16 @@ impl TransactionData {
 
 impl TransactionAggregator {
 
-    pub fn new(aggregator: Arc<CatLocalAggregator>) -> Self {
+    pub fn new(aggregator: Arc<aggregator::CatLocalAggregator>) -> Self {
         TransactionAggregator{
             aggregator,
-            schedule_mixin: ScheduleMixin::new(cat::consts::Signal::SignalSenderExit),
+            schedule_mixin: ScheduleMixin::new(consts::Signal::SignalSenderExit),
             data_map: Mutex::new(RefCell::new(Default::default())),
+            ch: channel::unbounded()
         }
     }
 
-    pub fn put_or_merge(&self, transaction: Transaction) {
+    fn put_or_merge(&self, transaction: Transaction) {
         let data_map = self.data_map.lock().unwrap();
         let mut data_map = data_map.borrow_mut();
 
@@ -127,18 +129,24 @@ impl TransactionAggregator {
             return;
         }
         let mut transaction = Transaction::new(
-            cat::consts::TYPE_SYSTEM.to_string(), 
-            cat::consts::NAME_TRANSACTION_AGGREGATOR.to_string(), 
+            consts::TYPE_SYSTEM.to_string(),
+            consts::NAME_TRANSACTION_AGGREGATOR.to_string(),
             Some(Arc::clone(self.aggregator.get_flush_sedner())));
 
-        for (_, data_transaction) in data_map {
-            let data = encode_transaction_data(&data_transaction);
+        for (_, transaction_data) in data_map {
+            let data = encode_transaction_data(&transaction_data);
             
-            let mut trans = Transaction::new(data_transaction.m_type, data_transaction.name, None);
+            let mut trans = Transaction::new(transaction_data.m_type, transaction_data.name, None);
             trans.set_data(String::from_utf8(data).unwrap());
             transaction.add_children(Message::Transaction(trans));
         }
         transaction.complete().await;
+    }
+
+    pub async fn handle_transaction(&self, transaction: Message) {
+        if let Message::Transaction(transaction) = transaction {
+            self.ch.0.send(transaction).await.expect("err");   
+        }
     }
 }
 
@@ -148,12 +156,20 @@ impl ScheduleMixer for TransactionAggregator {
         "TransactionAggregator"
     }
 
-    async fn handle(&self, _: cat::consts::Signal) {
+    async fn handle(&self, _: consts::Signal) {
         todo!()
     }
 
     async fn process(&self) {
-        todo!()
+        tokio::select! {
+            Ok(transaction) = self.ch.1.recv() => {
+                println!("tran_aggre {:#?}", transaction);
+                self.put_or_merge(transaction);
+            },
+            Ok(signal) = self.schedule_mixin.signals.1.recv() => {
+                self.schedule_mixin.handle(signal).await
+            }
+        }
     }
 
     async fn after_start(&self) {
@@ -165,7 +181,7 @@ impl ScheduleMixer for TransactionAggregator {
     }
 
     fn get_schedule_mixin(&self) -> &ScheduleMixin {
-        todo!()
+        &self.schedule_mixin
     }
 }
 
