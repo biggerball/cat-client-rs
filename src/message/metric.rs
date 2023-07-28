@@ -1,17 +1,16 @@
-use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
-use async_std::channel;
 use crate::message::message::{Message, MessageData, MessageGetter, Messager};
 
 #[derive(Debug)]
-pub struct Event {
+pub struct Metric {
     message_data: MessageData
 }
 
-impl Event {
-    pub fn new(message_type: String, name: String, flush_sender: Option<Arc<channel::Sender<Message>>>) -> Self {
+
+impl Metric {
+    pub fn new(message_type: String, name: String, flush_sender: Option<Arc<async_std::channel::Sender<Message>>>) -> Self {
         let message_data = MessageData::new(message_type, name, flush_sender);
-        Event{
+        Metric{
             message_data
         }
     }
@@ -19,12 +18,12 @@ impl Event {
     pub async fn complete(self) {
         if let Some(flush) = &self.message_data.get_flush_sender() {
             let flush = Arc::clone(flush);
-            flush.send(Message::Event(self)).await.expect("err");
+            flush.send(Message::Metric(self)).await.expect("err");
         }
     }
 }
 
-impl MessageGetter for Event {
+impl MessageGetter for Metric {
     fn get_type(&self) -> &String {
         self.message_data.get_type()
     }
@@ -46,7 +45,7 @@ impl MessageGetter for Event {
     }
 }
 
-impl Messager for Event {
+impl Messager for Metric {
     fn add_data_kv(&mut self, k: String, v: String) {
         todo!()
     }

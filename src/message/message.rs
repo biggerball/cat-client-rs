@@ -5,6 +5,7 @@ use crate::utils;
 use super::{transaction::Transaction, consts};
 use async_std::channel;
 use crate::message::event::Event;
+use crate::message::metric::Metric;
 
 #[derive(Debug)]
 pub struct MessageData<> {
@@ -114,4 +115,5 @@ pub enum Message {
     Transaction(Transaction),
     Event(Event),
     Heartbeat,
+    Metric(Metric)
 }

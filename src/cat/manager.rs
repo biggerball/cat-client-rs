@@ -1,6 +1,7 @@
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicU64, Ordering};
 use async_std::channel;
+use crate::cat::aggregator_event::EventAggregator;
 use crate::cat::aggregator_transaction::TransactionAggregator;
 use crate::cat::consts::Signal;
 use crate::cat::scheduler::ScheduleMixer;
@@ -13,6 +14,7 @@ pub struct CatMessageManager {
     flush_channel: (Arc<channel::Sender<Message>>, channel::Receiver<Message>),
     sender: Arc<CatMessageSender>,
     transaction_aggregator: Arc<TransactionAggregator>,
+    event_aggregator: Arc<EventAggregator>,
     offset: Mutex<u32>,
 }
 
@@ -40,7 +42,7 @@ impl ScheduleMixer for CatMessageManager {
                         if event.get_status() != consts::CAT_SUCCESS {
                             self.sender.handle_event(msg).await;
                         } else {
-
+                            self.event_aggregator.handle_event(msg).await;
                         }
                     }
                     _ => {}
@@ -63,13 +65,14 @@ impl ScheduleMixer for CatMessageManager {
 
 
 impl CatMessageManager {
-    pub fn new(sender: Arc<CatMessageSender>, transaction_aggregator: Arc<TransactionAggregator>) -> CatMessageManager {
+    pub fn new(sender: Arc<CatMessageSender>, transaction_aggregator: Arc<TransactionAggregator>, event_aggregator: Arc<EventAggregator>) -> CatMessageManager {
         let (message_sender, message_receiver) = channel::unbounded();
         CatMessageManager {
             schedule_mixin: ScheduleMixin::new(Signal::SignalManagerExit), 
             flush_channel: (Arc::new(message_sender), message_receiver),
             sender,
             transaction_aggregator,
+            event_aggregator,
             offset: Mutex::new(0),
         }
     }

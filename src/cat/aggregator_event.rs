@@ -70,6 +70,12 @@ impl EventAggregator {
         }
     }
 
+    pub async fn handle_event(&self, event: Message) {
+        if let Message::Event(event) = event {
+            self.ch.0.send(event).await.expect("err");
+        }
+    }
+
     async fn send(&self, data_map: HashMap<String, EventData>) {
         if data_map.len() == 0 {
             return;
