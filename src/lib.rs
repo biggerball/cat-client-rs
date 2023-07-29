@@ -1,4 +1,4 @@
-use std::fmt::format;
+use std::cell::{RefCell, Cell};
 use std::sync::Arc;
 use cat::aggregator_transaction::TransactionAggregator;
 use cat::scheduler;
@@ -24,7 +24,7 @@ pub struct Cat {
     sender: Arc<CatMessageSender>,
     aggregator: Arc<CatLocalAggregator>,
     transaction_aggregator: Arc<TransactionAggregator>,
-    event_aggregator: Arc<EventAggregator>
+    event_aggregator: Arc<EventAggregator>,
 }
 
 impl Cat {
@@ -41,7 +41,7 @@ impl Cat {
         scheduler::background(Arc::clone(&manager) as Arc<CatMessageManager>);
         scheduler::background(Arc::clone(&sender) as Arc<CatMessageSender>);
         scheduler::background(Arc::clone(&transaction_aggregator) as Arc<TransactionAggregator>);
-        scheduler::background(Arc::clone(&event_aggregator) as Arc<EventAggregator>);
+        // scheduler::background(Arc::clone(&event_aggregator) as Arc<EventAggregator>);
 
         let cat = Cat {
             manager,
@@ -73,6 +73,9 @@ impl Cat {
     }
 }
 
+
+
+
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
@@ -88,13 +91,13 @@ mod tests {
         transaction.complete().await;
 
 
-        // cat.log_error(Result::Err(""))
+        cat.log_error(produce_error().unwrap_err()).await;
 
         std::thread::sleep(Duration::from_secs(10));
     }
 
-    #[test]
-    fn test1() {
-
+    fn produce_error() -> Result<(), Box<dyn std::error::Error>> {
+        std::fs::read_to_string("produce error")?;
+        Ok(())
     }
 }

@@ -40,7 +40,15 @@ impl Transaction {
     }
 
     pub fn add_children(&mut self, children: Message) {
-        // self.children.push(children);
+        self.children.push(children);
+    }
+
+    pub fn get_children(&self) -> &Vec<Message> {
+        &self.children
+    }
+
+    pub fn get_duration_in_micros(&self) -> i64 {
+        self.duration_in_micros
     }
 
     pub fn new_event(&mut self, message_type: String, name: String) -> Result<&mut Event,()> {

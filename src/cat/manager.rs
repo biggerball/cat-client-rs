@@ -1,5 +1,4 @@
 use std::sync::{Arc, Mutex};
-use std::sync::atomic::{AtomicU64, Ordering};
 use async_std::channel;
 use crate::cat::aggregator_event::EventAggregator;
 use crate::cat::aggregator_transaction::TransactionAggregator;

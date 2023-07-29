@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use bytes::{BufMut};
+use bytes::BufMut;
 use crate::utils;
 
 use super::{transaction::Transaction, consts};
@@ -85,7 +85,7 @@ impl Messager for MessageData {
     }
 
     fn set_time(&mut self, time: i64) {
-        todo!()
+        self.timestamp = time;
     }
 }
 

@@ -3,6 +3,8 @@ use crate::message::consts;
 use crate::message::header::Header;
 // use crate::message::message_event::Event;
 use crate::message::message::{Message, MessageGetter};
+
+use super::event::Event;
 // use crate::message::message_header::Header;
 // use crate::message::message_heartbeat::HeartBeat;
 // use crate::message::message_metric::Metric;
@@ -17,33 +19,34 @@ pub struct BinaryEncoder {}
 
 impl BinaryEncoder {
 
-    // pub fn encode_message(buf: &mut Vec<u8>, message: &Message) {
-    //     match message {
-    //         Message::Transaction(transaction) => {
-    //             buf.put_u8(b't');
-    //             Self::encode_message_start(buf, transaction);
-    //             let children = transaction.get_children();
-    //             for child in children {
-    //                 Self::encode_message(buf, child);
-    //             }
-    //             buf.put_u8(b'T');
-    //             Self::encode_message_end(buf, transaction);
-    //             Self::write_i64(buf, transaction.get_duration_in_micros());
-    //         }
-    //         Message::Event(event) => {
-    //             Self::encode_event(buf, event);
-    //         }
-    //         Message::Metric(metric) => {
-    //             Self::encode_metric(buf, metric);
-    //         }
-    //         Message::Heartbeat(heartbeat) => {
-    //             Self::encode_heartbeat(buf, heartbeat);
-    //         }
-    //         Message::Trace(trace) => {
-    //             Self::encode_trace(buf, trace);
-    //         }
-    //     }
-    // }
+    pub fn encode_message(buf: &mut Vec<u8>, message: &Message) {
+        match message {
+            Message::Transaction(transaction) => {
+                buf.put_u8(b't');
+                Self::encode_message_start(buf, transaction);
+                let children = transaction.get_children();
+                for child in children {
+                    Self::encode_message(buf, child);
+                }
+                buf.put_u8(b'T');
+                Self::encode_message_end(buf, transaction);
+                Self::write_i64(buf, transaction.get_duration_in_micros());
+            }
+            Message::Event(event) => {
+                Self::encode_event(buf, event);
+            }
+            _ => {}
+            // Message::Metric(metric) => {
+            //     Self::encode_metric(buf, metric);
+            // }
+            // Message::Heartbeat(heartbeat) => {
+            //     Self::encode_heartbeat(buf, heartbeat);
+            // }
+            // Message::Trace(trace) => {
+            //     Self::encode_trace(buf, trace);
+            // }
+        }
+    }
 
     pub fn encode_header(buf: &mut Vec<u8>, header: &Header) {
         Self::write_version(buf, consts::BINARY_PROTOCOL);
@@ -61,10 +64,10 @@ impl BinaryEncoder {
         Self::write_string(buf, DEFAULT_SESSION_TOKEN);
     }
 
-    // pub fn encode_event(buf: &mut Vec<u8>, event: &Event) {
-    //     Self::encode_message_with_leader(buf, event, b'H');
-    // }
-    //
+    pub fn encode_event(buf: &mut Vec<u8>, event: &Event) {
+        Self::encode_message_with_leader(buf, event, b'H');
+    }
+    
     // pub fn encode_heartbeat(buf: &mut Vec<u8>, heartbeat: &HeartBeat) {
     //     Self::encode_message_with_leader(buf, heartbeat, b'H');
     // }

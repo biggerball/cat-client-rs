@@ -9,3 +9,4 @@ pub mod router;
 pub mod aggregator_transaction;
 pub mod aggregator_event;
 pub mod aggregator_metric;
+pub mod common;

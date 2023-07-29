@@ -1,9 +1,10 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 use async_std::channel;
+use bytes::BufMut;
 use crate::cat::config::Config;
 use crate::message::message::{Message, MessageGetter};
-use super::scheduler::{ScheduleMixin};
+use super::scheduler::ScheduleMixin;
 use crate::cat::consts::Signal;
 use crate::cat::scheduler::ScheduleMixer;
 use crate::message::consts;
@@ -16,9 +17,7 @@ pub struct CatMessageSender {
     high: (channel::Sender<Message>, channel::Receiver<Message>),
     normal: (channel::Sender<Message>, channel::Receiver<Message>),
     buf: Mutex<Vec<u8>>,
-    domain: String,
-    hostname: String,
-    ip: String,
+    config: (String, String, String)
 }
 
 
@@ -30,9 +29,7 @@ impl CatMessageSender {
             high: channel::unbounded(),
             normal: channel::unbounded(),
             buf: Mutex::new(Vec::new()),
-            domain: config.get_domain().clone(),
-            hostname: config.get_hostname().clone(),
-            ip: config.get_ip().clone(),
+            config: (config.get_domain().clone(), config.get_hostname().clone(), config.get_ip().clone())
         }
     }
     pub async fn handle_transaction(&self, message_transaction: Message) {
@@ -46,7 +43,7 @@ impl CatMessageSender {
     }
 
     pub async fn handle_event(&self, message_event: Message) {
-        if let Message::Event(event) = &message_event {
+        if let Message::Event(_) = &message_event {
             self.normal.0.send(message_event).await.expect("err");
         }
     }
@@ -56,14 +53,21 @@ impl CatMessageSender {
         let mut buf = self.buf.lock().unwrap();
         buf.clear();
 
+        buf.put_u32(0);
         let header = self.get_header();
         BinaryEncoder::encode_header(&mut *buf, &header);
+        BinaryEncoder::encode_message(&mut *buf, &message);
+        let b : [u8; 4] = ((buf.len() - 4) as i32).to_be_bytes();
+        buf[0] = b[0];
+        buf[1] = b[1];
+        buf[2] = b[2];
+        buf[3] = b[3];
 
     }
 
     fn get_header(&self) -> Header {
         let next_id = self.manager.next_id();
-        Header::new(self.domain.as_str(), self.hostname.as_str(), self.ip.as_str(), next_id)
+        Header::new(self.config.0.as_str(), self.config.1.as_str(), self.config.2.as_str(), next_id)
     }
 }
 

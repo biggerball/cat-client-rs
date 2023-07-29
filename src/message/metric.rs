@@ -47,22 +47,22 @@ impl MessageGetter for Metric {
 
 impl Messager for Metric {
     fn add_data_kv(&mut self, k: String, v: String) {
-        todo!()
+        self.message_data.add_data_kv(k, v);
     }
 
     fn add_data_k(&mut self, k: String) {
-        todo!()
+        self.message_data.add_data_k(k);
     }
 
     fn set_data(&mut self, v: String) {
-        todo!()
+        self.message_data.set_data(v);
     }
 
     fn set_status(&mut self, status: &'static str) {
-        todo!()
+        self.message_data.set_status(status);
     }
 
     fn set_time(&mut self, time: i64) {
-        todo!()
+        self.message_data.set_time(time);
     }
 }

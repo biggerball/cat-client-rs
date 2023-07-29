@@ -56,11 +56,11 @@ impl Messager for Event {
     }
 
     fn set_data(&mut self, v: String) {
-        todo!()
+        self.message_data.set_data(v);
     }
 
     fn set_status(&mut self, status: &'static str) {
-        todo!()
+        self.message_data.set_status(status);
     }
 
     fn set_time(&mut self, time: i64) {
